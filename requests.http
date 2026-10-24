@@ -1,0 +1,131 @@
+
+### ============================================
+### MINIDASH REST API - COMPLETE TEST FILE
+### ============================================
+
+@baseUrl = http://localhost:3000
+@restaurantId = 1
+@orderId = 1
+
+### ============================================
+### 1. GET ALL RESTAURANTS
+### ============================================
+
+GET {{baseUrl}}/restaurants
+
+
+### ============================================
+### 2. GET RESTAURANT MENU
+### ============================================
+
+GET {{baseUrl}}/restaurants/{{restaurantId}}/menu
+
+
+### ============================================
+### 3. CREATE A NEW ORDER
+### ============================================
+
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{
+  "restaurant_id": 1,
+  "items": [
+    {
+      "menu_item_id": 1,
+      "quantity": 2
+    },
+    {
+      "menu_item_id": 3,
+      "quantity": 1
+    }
+  ],
+  "delivery_address": "123 Main Street, New York, NY"
+}
+
+
+### ============================================
+### 4. GET ORDER DETAILS
+### ============================================
+
+GET {{baseUrl}}/orders/{{orderId}}
+
+
+### ============================================
+### 5. UPDATE ORDER - CONFIRMED
+### ============================================
+
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{
+  "status": "confirmed"
+}
+
+
+### ============================================
+### 6. UPDATE ORDER - PREPARING
+### ============================================
+
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{
+  "status": "preparing"
+}
+
+
+### ============================================
+### 7. UPDATE ORDER - READY
+### ============================================
+
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{
+  "status": "ready"
+}
+
+
+### ============================================
+### 8. UPDATE ORDER - PICKED UP
+### ============================================
+
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{
+  "status": "picked_up"
+}
+
+
+### ============================================
+### 9. UPDATE ORDER - DELIVERED
+### ============================================
+
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{
+  "status": "delivered"
+}
+
+
+### ============================================
+### 10. UPDATE ORDER - CANCELLED
+### TEST WITH A SEPARATE ORDER
+### ============================================
+
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{
+  "status": "cancelled"
+}
+
+
+### ============================================
+### 11. VERIFY FINAL ORDER STATUS
+### ============================================
+
+GET {{baseUrl}}/orders/{{orderId}}

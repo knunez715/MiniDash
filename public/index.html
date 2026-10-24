@@ -1,0 +1,216 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+  <title>MiniDash | Food Delivered Happy</title>
+
+  <!-- Our custom CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- NAVIGATION -->
+  <header class="navbar">
+    <div class="logo">🍔 Mini<span>Dash</span></div>
+
+    <nav aria-label="Main navigation">
+      <a href="#home">Home</a>
+      <a href="#restaurants">Restaurants</a>
+      <a href="#tracking">Track Order</a>
+    </nav>
+
+    <button id="cartButton" class="cart-btn"
+            type="button">
+      🛒 Cart (<span id="cartCount">0</span>)
+    </button>
+  </header>
+
+  <main>
+
+    <!-- HERO SECTION -->
+    <section class="hero" id="home">
+      <div class="hero-content">
+        <p class="eyebrow">✨ YOUR CRAVINGS, DELIVERED</p>
+
+        <h1>
+          Hungry?
+          <span>Let's eat something amazing!</span>
+        </h1>
+
+        <p>
+          Discover delicious meals from your favorite
+          local restaurants. Fresh food, happy vibes,
+          right to your door.
+        </p>
+
+        <a href="#restaurants" class="primary-btn">
+          Explore Restaurants →
+        </a>
+      </div>
+
+      <div class="hero-art" aria-hidden="true">
+        🍕 🍔 🍣
+      </div>
+    </section>
+
+    <!-- RESTAURANT SECTION -->
+    <section class="restaurants-section"
+             id="restaurants">
+
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">TASTY OPTIONS</p>
+          <h2>What are you craving?</h2>
+          <p>Find your next favorite meal.</p>
+        </div>
+      </div>
+
+      <!-- SEARCH AND FILTERS -->
+      <div class="search-area">
+        <input
+          type="search"
+          id="searchInput"
+          placeholder="🔍 Search restaurants or cuisines..."
+          aria-label="Search restaurants"
+        >
+
+        <select id="cuisineFilter"
+                aria-label="Filter by cuisine">
+          <option value="all">All Cuisines</option>
+          <option value="Italian">Italian</option>
+          <option value="Japanese">Japanese</option>
+          <option value="American">American</option>
+        </select>
+      </div>
+
+      <!-- JavaScript will load restaurants here -->
+      <div id="restaurantGrid" class="restaurant-grid">
+        <p>Loading delicious restaurants...</p>
+      </div>
+    </section>
+
+    <!-- MENU SECTION -->
+    <section class="menu-section" id="menuSection"
+             hidden>
+
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">PICK YOUR FAVORITES</p>
+          <h2 id="menuTitle">Restaurant Menu</h2>
+        </div>
+
+        <button id="backButton"
+                class="secondary-btn" type="button">
+          ← All Restaurants
+        </button>
+      </div>
+
+      <div id="menuGrid" class="menu-grid"></div>
+    </section>
+
+    <!-- ORDER TRACKING -->
+    <section class="tracking-section" id="tracking">
+      <div class="tracking-content">
+        <p class="eyebrow">WHERE'S MY FOOD?</p>
+        <h2>Track Your Order 📦</h2>
+
+        <p>
+          Enter your order number to check
+          its current status.
+        </p>
+
+        <form id="trackingForm" class="tracking-form">
+          <input
+            type="number"
+            id="trackingOrderId"
+            min="1"
+            step="1"
+            placeholder="Enter order number"
+            aria-label="Order number"
+            required
+          >
+
+          <button type="submit" class="primary-btn">
+            Track Order
+          </button>
+        </form>
+
+        <div id="trackingResult"
+             class="tracking-result"
+             aria-live="polite"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- SHOPPING CART SIDEBAR -->
+  <aside id="cartSidebar" class="cart-sidebar"
+         aria-label="Shopping cart"
+         aria-hidden="true">
+
+    <div class="cart-header">
+      <h2>🛒 Your Cart</h2>
+
+      <button id="closeCart"
+              class="close-btn"
+              type="button"
+              aria-label="Close cart">
+        ✕
+      </button>
+    </div>
+
+    <div id="cartItems" class="cart-items">
+      <p>Your cart is empty.</p>
+    </div>
+
+    <div class="cart-footer">
+      <div class="cart-total">
+        <span>Total</span>
+        <strong id="cartTotal">$0.00</strong>
+      </div>
+
+      <form id="checkoutForm">
+        <label for="deliveryAddress">
+          Delivery Address
+        </label>
+
+        <textarea
+          id="deliveryAddress"
+          placeholder="Enter your full delivery address"
+          rows="3"
+          required
+        ></textarea>
+
+        <button type="submit"
+                class="checkout-btn">
+          Place Order 🚀
+        </button>
+      </form>
+
+      <p id="checkoutMessage"
+         aria-live="polite"></p>
+    </div>
+  </aside>
+
+  <!-- BACKDROP FOR CART -->
+  <div id="cartOverlay" class="cart-overlay"
+       hidden></div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="logo">🍔 Mini<span>Dash</span></div>
+
+    <p>Good food. Good mood. Delivered with love. ❤️</p>
+    <p>© 2026 MiniDash. All rights reserved.</p>
+  </footer>
+
+  <!-- Our custom JavaScript -->
+  <script src="script.js"></script>
+
+</body>
+</html>
