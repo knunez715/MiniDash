@@ -256,6 +256,40 @@ MiniDash currently supports restaurant browsing, menu viewing, shopping cart man
 
 The project includes seven passing automated tests and a functional web interface.
 
+## 🏗️ System Architecture
+
+The following diagram illustrates how MiniDash components communicate.
+
+```mermaid
+flowchart TD
+    A["Customer"] --> B["MiniDash Web Interface"]
+
+    B --> C["HTML, CSS, JavaScript"]
+    C --> D["Express.js REST API"]
+
+    D --> E["Restaurant Management"]
+    D --> F["Order Management"]
+    D --> G["Scheduled Delivery"]
+
+    E --> H[("SQLite Database")]
+    F --> H
+    G --> H
+
+    G --> I["Scheduling Validation"]
+    I --> J["Background Scheduler"]
+
+    J --> K{"Within 30 Minutes of Delivery?"}
+
+    K -->|Yes| L["Update Status: PLACED"]
+    K -->|No| M["Keep Status: SCHEDULED"]
+
+    L --> H
+    M --> H
+
+    F --> N["Order Tracking"]
+    N --> B
+```
+
 ## 📄 License
 
 This project was developed for educational purposes.
