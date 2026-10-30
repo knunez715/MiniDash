@@ -175,22 +175,72 @@
       </div>
 
       <form id="checkoutForm">
-        <label for="deliveryAddress">
-          Delivery Address
-        </label>
 
-        <textarea
-          id="deliveryAddress"
-          placeholder="Enter your full delivery address"
-          rows="3"
-          required
-        ></textarea>
+  <label for="deliveryAddress">
+    Delivery Address
+  </label>
 
-        <button type="submit"
-                class="checkout-btn">
-          Place Order 🚀
-        </button>
-      </form>
+  <textarea
+    id="deliveryAddress"
+    placeholder="Enter your full delivery address"
+    rows="3"
+    required
+  ></textarea>
+
+  <!-- Delivery Options -->
+  <div class="delivery-options">
+
+    <h3>🚚 Delivery Options</h3>
+
+    <label>
+      <input
+        type="radio"
+        name="deliveryType"
+        value="asap"
+        checked
+      >
+      🚀 Deliver ASAP
+    </label>
+
+    <label>
+      <input
+        type="radio"
+        name="deliveryType"
+        value="scheduled"
+      >
+      📅 Schedule Delivery
+    </label>
+
+    <!-- Scheduled Delivery Date and Time -->
+    <div id="scheduleFields" hidden>
+
+      <label for="scheduledDeliveryTime">
+        Select Delivery Date & Time
+      </label>
+
+      <input
+        type="datetime-local"
+        id="scheduledDeliveryTime"
+      >
+
+      <p class="schedule-note">
+        Schedule your delivery at least 45 minutes
+        and no more than 7 days in advance.
+        Delivery must be during restaurant opening hours.
+      </p>
+
+    </div>
+
+  </div>
+
+  <button
+    type="submit"
+    class="checkout-btn"
+  >
+    Place Order 🚀
+  </button>
+
+</form>
 
       <p id="checkoutMessage"
          aria-live="polite"></p>

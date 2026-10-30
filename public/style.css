@@ -817,3 +817,24 @@ textarea:focus-visible {
     padding: 15px;
   }
 }
+
+.cancel-order-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.cancel-order-btn:hover {
+  background: #b02a37;
+}
+
+.cancel-order-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

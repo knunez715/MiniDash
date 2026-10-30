@@ -198,7 +198,7 @@ async function loadMenu(restaurant) {
 
     const foodIcons = ["🍕", "🍟", "🍔", "🍣", "🥗", "🍜"];
 
-    data.menu.forEach((item, index) => {
+    data.items.forEach((item, index) => {
       const card = createElement("article", "menu-card");
 
       const image = createElement(
@@ -394,6 +394,28 @@ document.addEventListener("keydown", event => {
   }
 });
 
+// ========================================
+// SCHEDULED DELIVERY CONTROLS
+// ========================================
+
+const scheduleFields = document.getElementById("scheduleFields");
+const scheduledDeliveryTime = document.getElementById("scheduledDeliveryTime");
+
+document.querySelectorAll('input[name="deliveryType"]').forEach(radio => {
+  radio.addEventListener("change", () => {
+    const isScheduled = document.querySelector(
+      'input[name="deliveryType"]:checked'
+    ).value === "scheduled";
+
+    scheduleFields.hidden = !isScheduled;
+    scheduledDeliveryTime.required = isScheduled;
+
+    if (!isScheduled) {
+      scheduledDeliveryTime.value = "";
+    }
+  });
+});
+
 // =========================================
 // 4. CHECKOUT
 // POST /orders
@@ -428,6 +450,30 @@ checkoutForm.addEventListener("submit", async event => {
     })),
     delivery_address: address
   };
+
+  // Add scheduled delivery time when selected
+const deliveryType = document.querySelector(
+  'input[name="deliveryType"]:checked'
+).value;
+
+if (deliveryType === "scheduled") {
+
+  if (!scheduledDeliveryTime.value) {
+    checkoutMessage.textContent =
+      "Please select a delivery date and time.";
+    return;
+  }
+
+  const selectedDate = new Date(scheduledDeliveryTime.value);
+
+  if (!Number.isFinite(selectedDate.getTime())) {
+    checkoutMessage.textContent =
+      "Please enter a valid delivery date and time.";
+    return;
+  }
+
+  order.scheduled_delivery_time = selectedDate.toISOString();
+}
 
   submitButton.disabled = true;
   submitButton.textContent = "Placing Order...";
@@ -519,8 +565,11 @@ async function trackOrder(orderId) {
       createElement("h3", "", `Order #${order.id}`)
     );
 
-    const displayStatus = String(order.status)
-      .replaceAll("_", " ");
+  const normalizedStatus = String(order.status).toLowerCase();
+
+const displayStatus = normalizedStatus
+  .replaceAll("_", " ")
+  .toUpperCase();
 
     heading.appendChild(
       createElement("span", "status-badge", displayStatus)
@@ -529,7 +578,7 @@ async function trackOrder(orderId) {
     card.appendChild(heading);
 
     // Cancelled orders have no delivery progress
-    if (order.status === "cancelled") {
+    if (normalizedStatus === "cancelled") {
       card.appendChild(
         createElement(
           "div",
@@ -539,8 +588,8 @@ async function trackOrder(orderId) {
       );
     } else {
       const stageIndex = orderStages.findIndex(
-        stage => stage.status === order.status
-      );
+  stage => stage.status === normalizedStatus
+);
 
       if (stageIndex >= 0) {
         const progress = createElement(
@@ -625,13 +674,21 @@ async function trackOrder(orderId) {
       "order-details"
     );
 
-    details.appendChild(
-      createElement(
-        "p",
-        "",
-        "🏪 Restaurant: " + order.restaurant_name
-      )
-    );
+  // Display the restaurant name
+const restaurantName =
+  order.restaurant_name ||
+  order.restaurant?.name ||
+  (order.restaurant_id === 1 ? "Keta's Kitchen" :
+   order.restaurant_id === 2 ? "Pizza Corner" :
+   "Restaurant #" + order.restaurant_id);
+
+details.appendChild(
+  createElement(
+    "p",
+    "",
+    "🏪 Restaurant: " + restaurantName
+  )
+);
 
     details.appendChild(
       createElement(
@@ -691,6 +748,53 @@ async function trackOrder(orderId) {
     });
 
     actions.appendChild(refreshButton);
+    // Allow cancellation before a scheduled order is released
+if (String(order.status).toUpperCase() === "SCHEDULED") {
+  const cancelButton = createElement(
+    "button",
+    "cancel-order-btn",
+    "❌ Cancel Scheduled Order"
+  );
+
+  cancelButton.type = "button";
+
+  cancelButton.addEventListener("click", async () => {
+    const confirmed = confirm(
+      `Are you sure you want to cancel Order #${order.id}?`
+    );
+
+    if (!confirmed) return;
+
+    cancelButton.disabled = true;
+    cancelButton.textContent = "Cancelling...";
+
+    try {
+      const response = await fetch(
+        `${API_URL}/orders/${order.id}/cancel`,
+        {
+          method: "POST"
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Cancellation failed");
+      }
+
+      alert(`Order #${order.id} has been cancelled.`);
+
+      await trackOrder(order.id);
+
+    } catch (error) {
+      alert(error.message);
+      cancelButton.disabled = false;
+      cancelButton.textContent = "❌ Cancel Scheduled Order";
+    }
+  });
+
+  actions.appendChild(cancelButton);
+}
     card.appendChild(actions);
 
     trackingResult.appendChild(card);

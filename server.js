@@ -13,6 +13,7 @@ const transitions = {
 function createApp({ clock = systemClock, database = db, timeZone = 'America/New_York' } = {}) {
   const app = express();
   app.use(express.json());
+  app.use(express.static('public'));
   const { run, get, all } = database;
 
   async function fetchOrder(id) {
