@@ -1,43 +1,99 @@
-# 🍔 MiniDash — Food Delivery REST API & Web Application
+# 🍔 MiniDash — Food Delivery Application
 
 MiniDash is a full-stack food delivery application built with Node.js, Express, SQLite, HTML, CSS, and JavaScript.
 
-The application allows users to browse restaurants, search by cuisine, explore menus, add food to a shopping cart, place orders, and track delivery progress through an interactive interface.
+The application allows customers to browse restaurants, view menus, add items to a shopping cart, place orders, schedule future deliveries, and track their order status.
 
-## Features
+MiniDash includes a RESTful API and a responsive web interface.
 
-- **Restaurant discovery:** Browse available restaurants and filter by cuisine.
-- **Interactive menus:** View menu items and prices.
-- **Shopping cart:** Add items, change quantities, and calculate order totals.
-- **Checkout:** Submit orders with a delivery address.
-- **Order tracking:** View order details and delivery progress.
-- **REST API:** Five endpoints for restaurant discovery, menus, order creation, order retrieval, and order status updates.
-- **Responsive design:** Colorful layout that adapts to desktop and mobile screens.
+## 🚀 Features
 
-## Technology Stack
+### Restaurant Browsing
+- View available restaurants.
+- Browse restaurant menus.
+- View menu item names and prices.
+- Check restaurant operating hours.
 
-| Component | Technology |
+### Shopping Cart
+- Add menu items to a cart.
+- Increase or decrease item quantities.
+- View order totals.
+- Place orders from one restaurant at a time.
+
+### Order Management
+- Place immediate delivery orders.
+- Retrieve existing orders.
+- Track order status.
+- View order details, including items, prices, and delivery addresses.
+
+### 📅 Scheduled Delivery
+- Choose between immediate and scheduled delivery.
+- Schedule orders between 45 minutes and 7 days in advance.
+- Validate delivery times against restaurant opening hours.
+- Require timezone-aware timestamps.
+- Store scheduled delivery information in the database.
+- Automatically check for scheduled orders ready for release.
+- Transition eligible scheduled orders from `SCHEDULED` to `PLACED` at the 30-minute release threshold.
+- Allow customers to cancel scheduled orders before release.
+- Prevent duplicate order releases through conditional database updates.
+
+### Order Tracking
+- View the current order status.
+- Display delivery progress for active orders.
+- Refresh order status.
+- View restaurant names, delivery addresses, and order totals.
+- Cancel eligible scheduled orders through the interface.
+
+## 🛠️ Technologies Used
+
+| Technology | Purpose |
 |---|---|
-| Backend | Node.js, Express.js |
-| Database | SQLite3 |
-| Frontend | HTML5, CSS3, JavaScript |
-| API Testing | REST Client (VS Code) |
-| Version Control | Git and GitHub |
+| Node.js | JavaScript runtime |
+| Express.js | REST API and web server |
+| SQLite | Database |
+| HTML5 | User interface structure |
+| CSS3 | User interface styling |
+| JavaScript | Frontend functionality |
+| REST Client | API endpoint testing |
+| Node.js Test Runner | Automated testing |
+| Git and GitHub | Version control |
 
-## Installation
+## 📁 Project Structure
 
-### Prerequisites
+```text
+MiniDash/
+├── public/
+│   ├── index.html
+│   ├── script.js
+│   └── style.css
+├── server.js
+├── database.js
+├── scheduling.js
+├── scheduling.test.js
+├── clock.js
+├── requests.http
+├── package.json
+├── package-lock.json
+├── README.md
+└── .gitignore
+```
 
-Install Node.js and Git.
+*File names may vary depending on the local project configuration.*
+
+## ⚙️ Installation
+
+### Windows PowerShell
+
+If PowerShell blocks npm commands, use:
+
+npm.cmd install
+npm.cmd run init-db
+npm.cmd start
+npm.cmd test
 
 ### 1. Clone the Repository
 
-```bash
-git clone https://github.com/YOUR-USERNAME/MiniDash-REST-API.git
-cd MiniDash-REST-API
-```
-
-Replace `YOUR-USERNAME` with your GitHub username.
+Clone the MiniDash repository from GitHub and open the project folder.
 
 ### 2. Install Dependencies
 
@@ -45,43 +101,44 @@ Replace `YOUR-USERNAME` with your GitHub username.
 npm install
 ```
 
-On Windows, if `npm` is not recognized, use `npm.cmd install`.
-
 ### 3. Initialize the Database
 
 ```bash
-node database.js
+npm run init-db
 ```
 
-This creates the local SQLite database, its tables, and sample restaurant/menu data.
-
-### 4. Start the Application
+### 4. Start the Server
 
 ```bash
 npm start
 ```
 
-On Windows, you can use `npm.cmd start`.
+By default, MiniDash runs on port `3000`.
 
-### 5. Open MiniDash
+### 5. Open the Application
 
-Visit:
+Open the following address in your browser:
 
-http://localhost:3000
+`http://localhost:3000/`
 
-## REST API Endpoints
+The restaurant API is available at:
+
+`http://localhost:3000/restaurants`
+
+## 🔗 REST API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/restaurants` | Retrieve all restaurants |
+| GET | `/restaurants` | Retrieve available restaurants |
 | GET | `/restaurants/:id/menu` | Retrieve a restaurant's menu |
-| POST | `/orders` | Create a new order |
-| GET | `/orders/:id` | Retrieve order details |
+| POST | `/orders` | Create an immediate or scheduled order |
+| GET | `/orders/:id` | Retrieve order information |
 | PATCH | `/orders/:id/status` | Update an order's status |
+| POST | `/orders/:id/cancel` | Cancel an eligible scheduled order |
 
-### Example: Create an Order
+## 📦 Example: Create an Immediate Order
 
-**POST** `/orders`
+**POST `/orders`**
 
 ```json
 {
@@ -90,66 +147,115 @@ http://localhost:3000
     {
       "menu_item_id": 1,
       "quantity": 2
-    },
-    {
-      "menu_item_id": 3,
-      "quantity": 1
     }
   ],
-  "delivery_address": "123 Main Street, New York, NY"
+  "delivery_address": "123 Main Street, Bronx, NY"
 }
 ```
 
-### Supported Order Statuses
+## 📅 Example: Create a Scheduled Order
 
-- `placed`
-- `confirmed`
-- `preparing`
-- `ready`
-- `picked_up`
-- `delivered`
-- `cancelled`
+**POST `/orders`**
 
-## API Testing
-
-The `requests.http` file contains example HTTP requests for testing all five API endpoints.
-
-To use it:
-
-1. Install the REST Client extension in Visual Studio Code.
-2. Start the Express server.
-3. Open `requests.http`.
-4. Click **Send Request** above the request you want to test.
-
-## Project Structure
-
-```text
-MiniDash/
-├── public/
-│   ├── index.html
-│   ├── style.css
-│   └── script.js
-├── database.js
-├── server.js
-├── requests.http
-├── package.json
-├── package-lock.json
-├── README.md
-└── .gitignore
+```json
+{
+  "restaurant_id": 1,
+  "items": [
+    {
+      "menu_item_id": 1,
+      "quantity": 2
+    }
+  ],
+  "delivery_address": "123 Main Street, Bronx, NY",
+  "scheduled_delivery_time": "2026-10-31T18:00:00-04:00"
+}
 ```
 
-The `node_modules` directory and local database are excluded from Git version control.
+The timestamp must include an explicit timezone offset or `Z`.
 
-## Future Improvements
+Scheduled delivery times must be at least 45 minutes and no more than 7 days in the future.
 
-- User registration and login
-- Restaurant images and ratings
-- Payment processing
-- Admin dashboard for order management
-- Live delivery notifications
+The restaurant must be open at the requested delivery time.
 
-## Project Status
+## 🔄 Scheduled Order Lifecycle
 
-MiniDash is a functional educational full-stack application demonstrating REST API development, SQLite database integration, and frontend/backend communication.
+Scheduled orders follow this process:
 
-**Note:** MiniDash is a local demonstration project. It does not process real payments or dispatch real deliveries.
+1. The customer selects a future delivery time.
+2. The backend validates the requested time.
+3. The order is created with status `SCHEDULED`.
+4. The server periodically checks for orders eligible for release.
+5. When the delivery time is within 30 minutes, the order becomes eligible to transition to `PLACED`.
+6. The customer may cancel the order while it remains `SCHEDULED`.
+7. Once the order is released, scheduled-order cancellation is no longer available.
+
+The release operation uses a conditional database update to prevent the same order from being released more than once.
+
+## 🧪 Automated Testing
+
+MiniDash uses the built-in Node.js test runner.
+
+Run tests using:
+
+```bash
+npm test
+```
+
+### Current Automated Test Coverage
+
+| Test | Result |
+|---|---|
+| 45-minute minimum scheduling | Passed |
+| 7-day maximum scheduling | Passed |
+| Restaurant opening-hours validation | Passed |
+| Explicit timezone validation | Passed |
+| Order remains scheduled before release | Passed |
+| Order releases at the 30-minute threshold | Passed |
+| Order is released only once | Passed |
+
+**Latest test results:**
+
+```text
+Tests: 7
+Passed: 7
+Failed: 0
+```
+
+The automatic-release tests use a simulated database. Additional integration testing is recommended to verify the real SQLite database and background scheduler.
+
+## 🔒 Configuration and Security
+
+The `.gitignore` file should exclude local dependencies, database files, and environment secrets.
+
+Example:
+
+```gitignore
+node_modules/
+.env
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+```
+
+## 🔮 Future Improvements
+
+Potential future enhancements include:
+
+- Customer accounts and authentication.
+- Restaurant administration dashboard.
+- Payment processing.
+- Email or SMS order notifications.
+- Live delivery tracking.
+- Additional automated integration tests.
+- Improved mobile responsiveness.
+
+## 📌 Project Status
+
+MiniDash currently supports restaurant browsing, menu viewing, shopping cart management, immediate ordering, scheduled deliveries, order tracking, and cancellation of eligible scheduled orders.
+
+The project includes seven passing automated tests and a functional web interface.
+
+## 📄 License
+
+This project was developed for educational purposes.
