@@ -1,31 +1,37 @@
+@base = http://localhost:3000
 
-### ============================================
-### MINIDASH REST API - COMPLETE TEST FILE
-### ============================================
+### List restaurants
+GET {{base}}/restaurants
 
-@baseUrl = http://localhost:3000
-@restaurantId = 1
-@orderId = 1
+### Restaurant menu
+GET {{base}}/restaurants/1/menu
 
-### ============================================
-### 1. GET ALL RESTAURANTS
-### ============================================
+### Immediate order
+POST {{base}}/orders
+Content-Type: application/json
 
-GET {{baseUrl}}/restaurants
+{"restaurant_id":1,"items":[{"id":1,"quantity":2}],"delivery_address":"123 Main St"}
 
+### Scheduled order (replace with a time 45 min–7 days ahead, while restaurant is open)
+POST {{base}}/orders
+Content-Type: application/json
 
-### ============================================
-### 2. GET RESTAURANT MENU
-### ============================================
+{"restaurant_id":1,"items":[{"id":1,"quantity":1}],"delivery_address":"123 Main St","scheduled_delivery_time":"2026-11-01T18:00:00-05:00"}
 
-GET {{baseUrl}}/restaurants/{{restaurantId}}/menu
+### Get order
+GET {{base}}/orders/1
 
+### Update placed order status
+PATCH {{base}}/orders/1/status
+Content-Type: application/json
 
-### ============================================
-### 3. CREATE A NEW ORDER
-### ============================================
+{"status":"PREPARING"}
 
-POST {{baseUrl}}/orders
+### Cancel scheduled order before release (replace ID)
+POST {{base}}/orders/1/cancel
+
+### Create Scheduled Order
+POST http://localhost:3000/orders
 Content-Type: application/json
 
 {
@@ -34,98 +40,16 @@ Content-Type: application/json
     {
       "menu_item_id": 1,
       "quantity": 2
-    },
-    {
-      "menu_item_id": 3,
-      "quantity": 1
     }
   ],
-  "delivery_address": "123 Main Street, New York, NY"
+  "delivery_address": "123 Main Street, Bronx, NY",
+  "scheduled_delivery_time": "2026-10-31T18:00:00-04:00"
 }
 
-
-### ============================================
-### 4. GET ORDER DETAILS
-### ============================================
-
-GET {{baseUrl}}/orders/{{orderId}}
+### Cancel Scheduled Order
+POST http://localhost:3000/orders/2/cancel
+Content-Type: application/
 
 
-### ============================================
-### 5. UPDATE ORDER - CONFIRMED
-### ============================================
-
-PATCH {{baseUrl}}/orders/{{orderId}}/status
-Content-Type: application/json
-
-{
-  "status": "confirmed"
-}
-
-
-### ============================================
-### 6. UPDATE ORDER - PREPARING
-### ============================================
-
-PATCH {{baseUrl}}/orders/{{orderId}}/status
-Content-Type: application/json
-
-{
-  "status": "preparing"
-}
-
-
-### ============================================
-### 7. UPDATE ORDER - READY
-### ============================================
-
-PATCH {{baseUrl}}/orders/{{orderId}}/status
-Content-Type: application/json
-
-{
-  "status": "ready"
-}
-
-
-### ============================================
-### 8. UPDATE ORDER - PICKED UP
-### ============================================
-
-PATCH {{baseUrl}}/orders/{{orderId}}/status
-Content-Type: application/json
-
-{
-  "status": "picked_up"
-}
-
-
-### ============================================
-### 9. UPDATE ORDER - DELIVERED
-### ============================================
-
-PATCH {{baseUrl}}/orders/{{orderId}}/status
-Content-Type: application/json
-
-{
-  "status": "delivered"
-}
-
-
-### ============================================
-### 10. UPDATE ORDER - CANCELLED
-### TEST WITH A SEPARATE ORDER
-### ============================================
-
-PATCH {{baseUrl}}/orders/{{orderId}}/status
-Content-Type: application/json
-
-{
-  "status": "cancelled"
-}
-
-
-### ============================================
-### 11. VERIFY FINAL ORDER STATUS
-### ============================================
-
-GET {{baseUrl}}/orders/{{orderId}}
+### Check Order Status
+GET http://localhost:3000/orders/2

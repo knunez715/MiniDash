@@ -1,392 +1,134 @@
+const express = require('express');
+const db = require('./database');
+const { systemClock } = require('./clock');
+const { parseScheduledTime, isRestaurantOpen, releaseDueOrders } = require('./scheduling');
 
-const express = require("express");
-const db = require("./database");
+const validId = value => /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value));
+const wrap = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+const transitions = {
+  PLACED: ['PREPARING'], PREPARING: ['READY'], READY: ['OUT_FOR_DELIVERY'],
+  OUT_FOR_DELIVERY: ['DELIVERED'], DELIVERED: [], CANCELLED: [], SCHEDULED: []
+};
 
-const app = express();
-const PORT = 3000;
+function createApp({ clock = systemClock, database = db, timeZone = 'America/New_York' } = {}) {
+  const app = express();
+  app.use(express.json());
+  const { run, get, all } = database;
 
-// Allow the API to receive JSON data
-app.use(express.json());
-app.use(express.static("public"));
-
-// Database helper functions
-function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
-}
-
-function all(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
-}
-
-function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve({
-        lastID: this.lastID,
-        changes: this.changes
-      });
-    });
-  });
-}
-
-// Check that IDs are positive integers
-function validId(value) {
-  const id = Number(value);
-  return Number.isSafeInteger(id) && id > 0
-    ? id
-    : null;
-}
-
-// Handle unexpected database errors
-function handleError(res, error) {
-  console.error(error);
-  return res.status(500).json({
-    error: "Internal server error"
-  });
-}
-
-// ============================================
-// ENDPOINT 1: GET /restaurants
-// List all restaurants
-// ============================================
-
-app.get("/restaurants", async (req, res) => {
-  try {
-    const restaurants = await all(
-      "SELECT * FROM restaurants ORDER BY id"
-    );
-
-    res.status(200).json(restaurants);
-  } catch (error) {
-    handleError(res, error);
-  }
-});
-
-// ============================================
-// ENDPOINT 2: GET /restaurants/:id/menu
-// Get the menu for a restaurant
-// ============================================
-
-app.get("/restaurants/:id/menu", async (req, res) => {
-  try {
-    const restaurantId = validId(req.params.id);
-
-    if (!restaurantId) {
-      return res.status(400).json({
-        error: "Invalid restaurant ID"
-      });
-    }
-
-    const restaurant = await get(
-      "SELECT * FROM restaurants WHERE id = ?",
-      [restaurantId]
-    );
-
-    if (!restaurant) {
-      return res.status(404).json({
-        error: "Restaurant not found"
-      });
-    }
-
-    const menu = await all(
-      "SELECT id, name, price FROM menu_items WHERE restaurant_id = ?",
-      [restaurantId]
-    );
-
-    res.status(200).json({
-      restaurant_id: restaurant.id,
-      restaurant_name: restaurant.name,
-      menu: menu
-    });
-  } catch (error) {
-    handleError(res, error);
-  }
-});
-
-// ============================================
-// ENDPOINT 3: POST /orders
-// Create a new customer order
-// ============================================
-
-app.post("/orders", async (req, res) => {
-  const { restaurant_id, items, delivery_address } =
-    req.body || {};
-
-  const restaurantId = validId(restaurant_id);
-
-  if (
-    !restaurantId ||
-    !Array.isArray(items) ||
-    items.length === 0 ||
-    typeof delivery_address !== "string" ||
-    !delivery_address.trim()
-  ) {
-    return res.status(400).json({
-      error: "Invalid order information"
-    });
+  async function fetchOrder(id) {
+    const order = await get('SELECT * FROM orders WHERE id = ?', [id]);
+    if (!order) return null;
+    order.items = await all(`SELECT oi.menu_item_id AS id, mi.name, oi.quantity,
+      oi.unit_price AS price, ROUND(oi.quantity * oi.unit_price, 2) AS subtotal
+      FROM order_items oi JOIN menu_items mi ON mi.id = oi.menu_item_id
+      WHERE oi.order_id = ?`, [id]);
+    return order;
   }
 
-  for (const item of items) {
-    if (
-      !item ||
-      !validId(item.menu_item_id) ||
-      !Number.isSafeInteger(item.quantity) ||
-      item.quantity <= 0
-    ) {
-      return res.status(400).json({
-        error: "Invalid menu item ID or quantity"
-      });
+  // Catch up overdue releases on each request, including after an application restart.
+  app.use(wrap(async (req, res, next) => { await releaseDueOrders(database, clock); next(); }));
+
+  app.get('/restaurants', wrap(async (req, res) => {
+    res.json(await all('SELECT id, name, cuisine, opening_hours, average_prep_time FROM restaurants'));
+  }));
+  app.get('/restaurants/:id/menu', wrap(async (req, res) => {
+    if (!validId(req.params.id)) return res.status(400).json({ error: 'Invalid restaurant ID' });
+    const restaurant = await get('SELECT id, name FROM restaurants WHERE id = ?', [req.params.id]);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+    res.json({ restaurant, items: await all('SELECT id, name, price FROM menu_items WHERE restaurant_id = ?', [req.params.id]) });
+  }));
+
+  app.post('/orders', wrap(async (req, res) => {
+    const { restaurant_id, items, delivery_address, scheduled_delivery_time = null } = req.body || {};
+    if (!validId(restaurant_id) || typeof delivery_address !== 'string' || !delivery_address.trim() ||
+      !Array.isArray(items) || !items.length || items.some(item => !item ||
+        !validId(item.id ?? item.menu_item_id) || !Number.isSafeInteger(item.quantity) || item.quantity < 1)) {
+      return res.status(400).json({ error: 'Provide restaurant_id, items [{id, quantity}], and delivery_address' });
     }
-  }
-
-  try {
-    // Keep the order and its items together
-    await run("BEGIN IMMEDIATE TRANSACTION");
-
-    const restaurant = await get(
-      "SELECT id FROM restaurants WHERE id = ?",
-      [restaurantId]
-    );
-
-    if (!restaurant) {
-      await run("ROLLBACK");
-      return res.status(404).json({
-        error: "Restaurant not found"
-      });
+    let scheduled;
+    try { scheduled = parseScheduledTime(scheduled_delivery_time, clock.now()); }
+    catch (error) { return res.status(400).json({ error: error.message }); }
+    const restaurant = await get('SELECT id, opening_hours FROM restaurants WHERE id = ?', [restaurant_id]);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+    if (scheduled && !isRestaurantOpen(restaurant.opening_hours, scheduled, timeZone)) {
+      return res.status(400).json({ error: 'Restaurant is closed at the scheduled delivery time' });
     }
-
-    let totalCents = 0;
-    const orderItems = [];
-
-    for (const item of items) {
-      const menuItem = await get(
-        `SELECT * FROM menu_items
-         WHERE id = ? AND restaurant_id = ?`,
-        [item.menu_item_id, restaurantId]
-      );
-
-      if (!menuItem) {
-        await run("ROLLBACK");
-        return res.status(400).json({
-          error: "Menu item not found at this restaurant"
-        });
-      }
-
-      const unitPriceCents = Math.round(
-        menuItem.price * 100
-      );
-
-      totalCents += unitPriceCents * item.quantity;
-
-      if (!Number.isSafeInteger(totalCents)) {
-        await run("ROLLBACK");
-        return res.status(400).json({
-          error: "Order total is too large"
-        });
-      }
-
-      orderItems.push({
-        menu_item_id: menuItem.id,
-        name: menuItem.name,
-        quantity: item.quantity,
-        unit_price: unitPriceCents / 100,
-        subtotal: (unitPriceCents * item.quantity) / 100
-      });
-    }
-
-    const total = totalCents / 100;
-
-    const result = await run(
-      `INSERT INTO orders
-       (restaurant_id, delivery_address, total, status)
-       VALUES (?, ?, ?, ?)`,
-      [
-        restaurantId,
-        delivery_address.trim(),
-        total,
-        "placed"
-      ]
-    );
-
-    const orderId = result.lastID;
-
-    for (const item of orderItems) {
-      await run(
-        `INSERT INTO order_items
-         (order_id, menu_item_id, quantity, unit_price)
-         VALUES (?, ?, ?, ?)`,
-        [
-          orderId,
-          item.menu_item_id,
-          item.quantity,
-          item.unit_price
-        ]
-      );
-    }
-
-    await run("COMMIT");
-
-    res.status(201).json({
-      message: "Order placed successfully",
-      order_id: orderId,
-      restaurant_id: restaurantId,
-      items: orderItems,
-      delivery_address: delivery_address.trim(),
-      total: total,
-      status: "placed"
-    });
-  } catch (error) {
+    const ids = items.map(item => Number(item.id ?? item.menu_item_id));
+    if (new Set(ids).size !== ids.length) return res.status(400).json({ error: 'Duplicate menu items are not allowed' });
+    const menu = await all(`SELECT id, price FROM menu_items WHERE restaurant_id = ? AND id IN (${ids.map(() => '?').join(',')})`, [restaurant_id, ...ids]);
+    if (menu.length !== ids.length) return res.status(400).json({ error: 'One or more items do not belong to this restaurant' });
+    const priceById = new Map(menu.map(row => [row.id, row.price]));
+    const cents = items.reduce((sum, item) => sum + Math.round(priceById.get(Number(item.id ?? item.menu_item_id)) * 100) * item.quantity, 0);
+    if (!Number.isSafeInteger(cents)) return res.status(400).json({ error: 'Order total is too large' });
+    await run('BEGIN IMMEDIATE TRANSACTION');
+    let orderId;
     try {
-      await run("ROLLBACK");
-    } catch (_) {}
+      const result = await run(`INSERT INTO orders
+        (restaurant_id, delivery_address, scheduled_delivery_time, status, total, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)`, [restaurant_id, delivery_address.trim(), scheduled?.toISOString() || null,
+        scheduled ? 'SCHEDULED' : 'PLACED', cents / 100, clock.now().toISOString()]);
+      orderId = result.lastID;
+      for (const item of items) {
+        const id = Number(item.id ?? item.menu_item_id);
+        await run('INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price) VALUES (?, ?, ?, ?)',
+          [orderId, id, item.quantity, priceById.get(id)]);
+      }
+      await run('COMMIT');
+    } catch (error) { await run('ROLLBACK'); throw error; }
+    res.status(201).json(await fetchOrder(orderId));
+  }));
 
-    handleError(res, error);
-  }
-});
+  app.get('/orders/:id', wrap(async (req, res) => {
+    if (!validId(req.params.id)) return res.status(400).json({ error: 'Invalid order ID' });
+    const order = await fetchOrder(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json(order);
+  }));
 
-// ============================================
-// ENDPOINT 4: GET /orders/:id
-// Retrieve customer order details
-// ============================================
-
-app.get("/orders/:id", async (req, res) => {
-  try {
-    const orderId = validId(req.params.id);
-
-    if (!orderId) {
-      return res.status(400).json({
-        error: "Invalid order ID"
-      });
-    }
-
-    const order = await get(
-      `SELECT orders.*,
-              restaurants.name AS restaurant_name
-       FROM orders
-       JOIN restaurants
-       ON orders.restaurant_id = restaurants.id
-       WHERE orders.id = ?`,
-      [orderId]
-    );
-
-    if (!order) {
-      return res.status(404).json({
-        error: "Order not found"
-      });
-    }
-
-    const items = await all(
-      `SELECT
-         order_items.menu_item_id,
-         menu_items.name,
-         order_items.quantity,
-         order_items.unit_price,
-         ROUND(
-           order_items.quantity * order_items.unit_price,
-           2
-         ) AS subtotal
-       FROM order_items
-       JOIN menu_items
-       ON order_items.menu_item_id = menu_items.id
-       WHERE order_items.order_id = ?`,
-      [orderId]
-    );
-
-    res.status(200).json({
-      ...order,
-      items: items
-    });
-  } catch (error) {
-    handleError(res, error);
-  }
-});
-
-// ============================================
-// ENDPOINT 5: PATCH /orders/:id/status
-// Update the status of an order
-// ============================================
-
-app.patch("/orders/:id/status", async (req, res) => {
-  try {
-    const orderId = validId(req.params.id);
+  app.patch('/orders/:id/status', wrap(async (req, res) => {
+    if (!validId(req.params.id)) return res.status(400).json({ error: 'Invalid order ID' });
     const { status } = req.body || {};
-
-    const allowedStatuses = [
-      "placed",
-      "confirmed",
-      "preparing",
-      "ready",
-      "picked_up",
-      "delivered",
-      "cancelled"
-    ];
-
-    if (!orderId) {
-      return res.status(400).json({
-        error: "Invalid order ID"
-      });
+    if (typeof status !== 'string' || !Object.hasOwn(transitions, status)) {
+      return res.status(400).json({ error: `Invalid status. Allowed: ${Object.keys(transitions).join(', ')}` });
     }
+    const order = await get('SELECT status FROM orders WHERE id = ?', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!transitions[order.status]?.includes(status)) return res.status(409).json({ error: `Cannot change ${order.status} to ${status}` });
+    const result = await run('UPDATE orders SET status = ? WHERE id = ? AND status = ?', [status, req.params.id, order.status]);
+    if (!result.changes) return res.status(409).json({ error: 'Order status changed concurrently; retry' });
+    res.json(await fetchOrder(req.params.id));
+  }));
 
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({
-        error: "Invalid order status",
-        allowed_statuses: allowedStatuses
-      });
+  // Customer cancellation is distinct from restaurant/driver status changes.
+  app.post('/orders/:id/cancel', wrap(async (req, res) => {
+    if (!validId(req.params.id)) return res.status(400).json({ error: 'Invalid order ID' });
+    const order = await get('SELECT id, status, scheduled_delivery_time FROM orders WHERE id = ?', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status !== 'SCHEDULED' || !order.scheduled_delivery_time ||
+      new Date(order.scheduled_delivery_time).getTime() - clock.now().getTime() <= 30 * 60_000) {
+      return res.status(409).json({ error: 'Only unreleased scheduled orders can be cancelled' });
     }
+    const result = await run(`UPDATE orders SET status = 'CANCELLED' WHERE id = ? AND status = 'SCHEDULED'`, [req.params.id]);
+    if (!result.changes) return res.status(409).json({ error: 'Order already released or cancelled' });
+    res.json(await fetchOrder(req.params.id));
+  }));
 
-    const result = await run(
-      "UPDATE orders SET status = ? WHERE id = ?",
-      [status, orderId]
-    );
-
-    if (result.changes === 0) {
-      return res.status(404).json({
-        error: "Order not found"
-      });
-    }
-
-    res.status(200).json({
-      message: "Order status updated successfully",
-      order_id: orderId,
-      status: status
-    });
-  } catch (error) {
-    handleError(res, error);
-  }
-});
-
-// Handle endpoints that do not exist
-app.use((req, res) => {
-  res.status(404).json({
-    error: "Endpoint not found"
+  app.use((error, req, res, next) => {
+    if (error instanceof SyntaxError && 'body' in error) return res.status(400).json({ error: 'Invalid JSON body' });
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
   });
-});
+  return app;
+}
 
-// Handle invalid JSON requests
-app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400) {
-    return res.status(400).json({
-      error: "Invalid JSON"
-    });
-  }
-
-  handleError(res, err);
-});
-
-// Start MiniDash server
-app.listen(PORT, () => {
-  console.log(
-    `MiniDash API running at http://localhost:${PORT}`
-  );
-});
+async function start({ clock = systemClock, database = db, port = process.env.PORT || 3000 } = {}) {
+  await database.initializeDatabase();
+  const app = createApp({ clock, database });
+  const server = app.listen(port, () => console.log(`MiniDash running at http://localhost:${port}`));
+  // Release on a timer as well as on incoming requests. SQL guards exactly-once transitions.
+  const timer = setInterval(() => releaseDueOrders(database, clock).catch(console.error), 1000);
+  server.on('close', () => clearInterval(timer));
+  return server;
+}
+if (require.main === module) start().catch(error => { console.error(error); process.exit(1); });
+module.exports = { createApp, start };
